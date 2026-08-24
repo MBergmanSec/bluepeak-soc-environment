@@ -1,0 +1,107 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BP-001 — Suspicious PowerShell Execution</title><link rel="stylesheet" href="../style.css"></head><body><header class="topbar"><div class="brand"><div class="mark">BP</div><div><div class="brand-name">BLUEPEAK SECURITY OPERATIONS</div><div class="brand-sub">Investigation Detail</div></div></div><nav><a href="../index.html">← Case history</a></nav></header><main class="case-page"><section class="case-hero"><div><p class="eyebrow">BP-001</p><h1>Suspicious PowerShell Execution</h1><p class="lead">Finance workstation investigation using Sysmon, Windows Security, and PowerShell telemetry in Splunk.</p></div><span class="badge suspicious large">HIGHLY SUSPICIOUS</span></section><section class="facts"><div><small>Severity</small><strong>Medium</strong></div><div><small>Host</small><strong>BNE-FIN-WS01</strong></div><div><small>Department</small><strong>Finance</strong></div><div><small>Disposition</small><strong>Escalated</strong></div><div><small>Containment</small><strong>Isolation Recommended</strong></div></section><section class="section"><div class="section-head"><p class="eyebrow">SUMMARY</p><h2>Executive summary</h2></div><div class="prose card"><p>BNE-FIN-WS01 executed unusual PowerShell activity under the LocalAdmin account. A hidden PowerShell process created a file in the user's Temp directory. PowerShell subsequently performed a DNS query to <code>example.com</code>, followed by <code>cmd.exe</code> executing <code>whoami</code>, with output written to an additional Temp file. No associated outbound network connection was confirmed. Escalation and host isolation were recommended.</p></div></section><section class="section"><div class="section-head"><p class="eyebrow">TIMELINE</p><h2>Key evidence</h2></div><div class="timeline"><div class="timeline-item"><time>11:40:04</time><div><strong>PowerShell execution</strong><p><code>powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\BluePeak\BP-001.ps1</code></p></div></div><div class="timeline-item"><time>11:40:06</time><div><strong>Hidden PowerShell / file creation</strong><p><code>finance_sync.tmp</code> created under the LocalAdmin Temp path.</p></div></div><div class="timeline-item"><time>11:40:26</time><div><strong>DNS activity</strong><p><code>powershell.exe</code> queried <code>example.com</code>.</p></div></div><div class="timeline-item"><time>11:40:29</time><div><strong>User discovery</strong><p><code>cmd.exe</code> launched <code>whoami.exe</code>; output was redirected to <code>user_context.txt</code>.</p></div></div></div></section><section class="section"><div class="section-head"><p class="eyebrow">INVESTIGATION</p><h2>Key SPL</h2></div><div class="cards two"><div class="card"><h3>PowerShell process review</h3><pre><code>index=* host="BNE-FIN-WS01" EventCode=1 Image="*\\powershell.exe"
+| table _time User Image ParentImage CommandLine
+| sort - _time</code></pre></div><div class="card"><h3>File creation</h3><pre><code>index=* host="BNE-FIN-WS01" EventCode=11
+| table _time User Image TargetFilename
+| sort - _time</code></pre></div><div class="card"><h3>DNS activity</h3><pre><code>index=* host="BNE-FIN-WS01" EventCode=22
+| table _time User Image QueryName
+| sort - _time</code></pre></div><div class="card">
+  <h3>Network activity</h3>
+  <pre><code>index=* host="BNE-FIN-WS01" EventCode=3
+| table _time User Image SourceIp SourcePort DestinationIp DestinationPort
+| sort _time</code></pre>
+</div>
+
+</div>
+
+<div class="evidence-section">
+| <div class="evidence-section">
+
+  <div class="evidence-card">
+    <div class="evidence-header">
+      <span class="evidence-number">01</span>
+      <div>
+        <h3>Initial PowerShell Execution</h3>
+        <p>
+          Sysmon EventCode 1 identified execution of the BP-001 PowerShell script,
+          followed by hidden PowerShell activity on BNE-FIN-WS01.
+        </p>
+      </div>
+    </div>
+
+    <a href="../assets/screenshots/BP-001/EventCode 1 — Initial PowerShell.png"
+       target="_blank">
+      <img
+        src="../assets/screenshots/BP-001/EventCode 1 — Initial PowerShell.png"
+        alt="Splunk evidence showing initial PowerShell execution on BNE-FIN-WS01"
+        class="evidence-image">
+    </a>
+  </div>
+
+
+  <div class="evidence-card">
+    <div class="evidence-header">
+      <span class="evidence-number">02</span>
+      <div>
+        <h3>Temporary File Creation</h3>
+        <p>
+          Sysmon EventCode 11 showed PowerShell-associated file creation within
+          the LocalAdmin user's temporary directory, including BluePeak-related artifacts.
+        </p>
+      </div>
+    </div>
+
+    <a href="../assets/screenshots/BP-001/EventCode 11 — File Creation.png"
+       target="_blank">
+      <img
+        src="../assets/screenshots/BP-001/EventCode 11 — File Creation.png"
+        alt="Splunk evidence showing temporary file creation"
+        class="evidence-image">
+    </a>
+  </div>
+
+
+  <div class="evidence-card">
+    <div class="evidence-header">
+      <span class="evidence-number">03</span>
+      <div>
+        <h3>PowerShell DNS Activity</h3>
+        <p>
+          Sysmon EventCode 22 identified PowerShell performing DNS resolution
+          for example.com during the investigation window.
+        </p>
+      </div>
+    </div>
+
+    <a href="../assets/screenshots/BP-001/EventCode 22 — DNS.png"
+       target="_blank">
+      <img
+        src="../assets/screenshots/BP-001/EventCode 22 — DNS.png"
+        alt="Splunk evidence showing PowerShell DNS activity"
+        class="evidence-image">
+    </a>
+  </div>
+
+
+  <div class="evidence-card">
+    <div class="evidence-header">
+      <span class="evidence-number">04</span>
+      <div>
+        <h3>User Discovery</h3>
+        <p>
+          Process telemetry showed cmd.exe executing whoami.exe.
+          Command-line evidence showed the output being redirected to
+          user_context.txt within the user's temporary directory.
+        </p>
+      </div>
+    </div>
+
+    <a href="../assets/screenshots/BP-001/EventCode 1 — Discovery.png"
+       target="_blank">
+      <img
+        src="../assets/screenshots/BP-001/EventCode 1 — Discovery.png"
+        alt="Splunk evidence showing whoami user discovery activity"
+        class="evidence-image">
+    </a>
+  </div>
+
+</div>

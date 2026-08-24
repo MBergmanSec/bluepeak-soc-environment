@@ -1,0 +1,1 @@
+document.querySelectorAll('.filter').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));btn.classList.add('active');const v=btn.dataset.filter;document.querySelectorAll('.case-card').forEach(c=>c.style.display=(v==='all'||c.dataset.status===v)?'block':'none')}));

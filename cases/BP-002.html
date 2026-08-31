@@ -1,0 +1,72 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BP-002 — Suspicious Persistence and Masquerading</title><link rel="stylesheet" href="../style.css"></head><body>
+<header class="topbar"><div class="brand"><div class="mark">BP</div><div><div class="brand-name">BLUEPEAK SECURITY OPERATIONS</div><div class="brand-sub">Investigation Detail</div></div></div><nav><a href="../index.html">← Case history</a></nav></header>
+<main class="case-page">
+<section class="case-hero"><div><p class="eyebrow">BP-002</p><h1>Suspicious Persistence and Masquerading</h1><p class="lead">Finance workstation investigation using Sysmon, Windows Security, registry, process, DNS and network telemetry in Splunk.</p></div><span class="badge suspicious large">HIGHLY SUSPICIOUS</span></section>
+<section class="facts"><div><small>Severity</small><strong>Medium</strong></div><div><small>Host</small><strong>BNE-FIN-WS01</strong></div><div><small>Department</small><strong>Finance</strong></div><div><small>Disposition</small><strong>Escalated</strong></div><div><small>Containment</small><strong>Isolation Recommended</strong></div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">SUMMARY</p><h2>Executive summary</h2></div><div class="prose card">
+<p>A user in the Finance department showed executable activity from <code>MicrosoftEdgeUpdate.exe</code>. Investigation of the surrounding timeline identified a registry Run key and scheduled task referencing an executable in the user's AppData directory, with the scheduled task subsequently executed.</p>
+<p>Hash comparison showed that the AppData executable did not match the legitimate Microsoft Edge Update executable located under Program Files. This difference alone is not inherently malicious, but combined with the persistence activity, trusted-looking naming and execution context, the activity was assessed as most likely malicious. No network activity was identified that could be attributed to the suspicious executable.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">TIMELINE</p><h2>Key evidence</h2></div><div class="timeline">
+<div class="timeline-item"><time>~10:57:03</time><div><strong>Registry Run key modification</strong><p><code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</code> was modified with a value named <code>Microsoft Edge Update</code> referencing the AppData executable.</p></div></div>
+<div class="timeline-item"><time>~10:57:03</time><div><strong>Scheduled task created</strong><p><code>\Microsoft\Windows\UpdateOrchestrator\EdgeUpdateCheck</code> was created with an ONLOGON trigger and an action referencing the AppData executable.</p></div></div>
+<div class="timeline-item"><time>~10:57:05</time><div><strong>Scheduled task executed</strong><p>The newly created <code>EdgeUpdateCheck</code> scheduled task was explicitly run.</p></div></div>
+<div class="timeline-item"><time>~10:57:05</time><div><strong>Suspicious executable execution</strong><p><code>C:\Users\LocalAdmin\AppData\Local\Microsoft\EdgeUpdate\MicrosoftEdgeUpdate.exe</code> executed under the LocalAdmin account.</p></div></div>
+<div class="timeline-item"><time>Review</time><div><strong>Hash comparison</strong><p>The SHA256 of the AppData executable differed from the Microsoft Edge Update executable located under <code>Program Files (x86)</code>.</p></div></div>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">INVESTIGATION</p><h2>Key SPL</h2></div><div class="cards two">
+<div class="card"><h3>User-profile process review</h3><pre><code>index=* host="BNE-FIN-WS01" EventCode=1
+Image="*\\Users\\*"
+| table _time User Image ParentImage CommandLine
+| sort _time</code></pre></div>
+<div class="card"><h3>Host timeline</h3><pre><code>index=* host="BNE-FIN-WS01"
+earliest="08/31/2026:10:56:30" latest="08/31/2026:10:57:35"
+| table _time EventCode User Image ParentImage CommandLine TargetFilename
+| sort _time</code></pre></div>
+<div class="card"><h3>DNS and network review</h3><pre><code>index=* host="BNE-FIN-WS01" (EventCode=22 OR EventCode=3)
+earliest="08/31/2026:10:56:30" latest="08/31/2026:10:57:35"
+| table _time User EventCode Image QueryName DestinationIp DestinationPort DestinationHostname
+| sort _time</code></pre></div>
+<div class="card"><h3>Executable hash review</h3><pre><code>index=* host="BNE-FIN-WS01" EventCode=1 Image="*\\MicrosoftEdgeUpdate.exe"
+| table _time User Image CommandLine Hashes
+| sort _time</code></pre></div>
+</div></section>
+
+<div class="evidence-section">
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">01</span><div><h3>User-Profile Process Execution</h3><p>Process telemetry identified <code>MicrosoftEdgeUpdate.exe</code> executing from the LocalAdmin user's AppData directory rather than the expected Program Files location.</p></div></div><a href="../assets/screenshots/BP-002/01-Process-Execution.png" target="_blank"><img src="../assets/screenshots/BP-002/01-Process-Execution.png" alt="Splunk evidence showing MicrosoftEdgeUpdate executable activity" class="evidence-image"></a></div><div class="evidence-card"><div class="evidence-header"><span class="evidence-number">02</span><div><h3>DNS and Network Review</h3><p>DNS and network telemetry was reviewed around the activity window. Background host activity was observed, but no network connection was attributed to the suspicious AppData executable.</p></div></div><a href="../assets/screenshots/BP-002/02-Network-DNS-Review.png" target="_blank"><img src="../assets/screenshots/BP-002/02-Network-DNS-Review.png" alt="Splunk DNS and network review around BP-002 activity" class="evidence-image"></a></div><div class="evidence-card"><div class="evidence-header"><span class="evidence-number">03</span><div><h3>Timeline Reconstruction</h3><p>A broader host timeline exposed the registry Run-key modification, scheduled-task creation and subsequent task execution that established the suspicious activity chain.</p></div></div><a href="../assets/screenshots/BP-002/03-Timeline-Investigation.png" target="_blank"><img src="../assets/screenshots/BP-002/03-Timeline-Investigation.png" alt="Splunk timeline showing registry and scheduled task activity" class="evidence-image"></a></div><div class="evidence-card"><div class="evidence-header"><span class="evidence-number">04</span><div><h3>Suspicious Executable Hash</h3><p>Sysmon process telemetry provided the SHA256 value for the <code>MicrosoftEdgeUpdate.exe</code> executing from the user's AppData directory.</p></div></div><a href="../assets/screenshots/BP-002/04-Suspicious-Executable-Hash.png" target="_blank"><img src="../assets/screenshots/BP-002/04-Suspicious-Executable-Hash.png" alt="Splunk evidence showing the suspicious executable SHA256" class="evidence-image"></a></div><div class="evidence-card"><div class="evidence-header"><span class="evidence-number">05</span><div><h3>Hash Comparison</h3><p>Hash comparison showed that the AppData executable did not match the legitimate Microsoft Edge Update executable observed under <code>Program Files (x86)</code>. The mismatch strengthened the masquerading hypothesis but was not treated as independently proving maliciousness.</p></div></div><a href="../assets/screenshots/BP-002/05-Hash-Comparison.png" target="_blank"><img src="../assets/screenshots/BP-002/05-Hash-Comparison.png" alt="Splunk evidence comparing MicrosoftEdgeUpdate executable hashes" class="evidence-image"></a></div></div>
+
+<section class="section"><div class="section-head"><p class="eyebrow">ANALYSIS</p><h2>Analyst Reasoning</h2></div><div class="prose card">
+<p>The activity initially appeared similar to legitimate Microsoft updater activity, and normal OneDrive and Edge-related processes were present in the surrounding telemetry. I broadened the investigation around the alert window rather than relying on the initial process hypothesis.</p>
+<p>The broader timeline identified a registry Run key and scheduled task both referencing <code>MicrosoftEdgeUpdate.exe</code> within the LocalAdmin user's AppData directory. The scheduled task was then explicitly executed. These persistence mechanisms, combined with the trusted-looking Microsoft naming and user-profile location, significantly increased my suspicion.</p>
+<p>I then compared the executable against the Microsoft Edge Update binary observed under Program Files and found that their SHA256 hashes did not match. Although a hash difference alone does not establish maliciousness, the combined behaviour lacked an identified legitimate business explanation. I assessed the activity as most likely malicious and recommended isolation of the workstation while further evidence was gathered.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">ASSESSMENT</p><h2>Disposition and Recommended Actions</h2></div><div class="cards two">
+<div class="card"><h3>Assessment</h3><p>Behaviour in this case is most likely malicious due to the user context and command telemetry. The executable appears to masquerade as Microsoft Edge Update, with persistence established through a registry Run key and scheduled task using trusted-looking Microsoft naming.</p><p><strong>Confidence: 90% malicious / 10% benign.</strong></p></div>
+<div class="card"><h3>Recommended Actions</h3><p>Host isolation is recommended due to the combined persistence and execution activity. Continue gathering evidence including command telemetry, user information, executable information and the complete activity timeline.</p></div>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">MITRE ATT&amp;CK</p><h2>Technique Mapping</h2></div><div class="cards two">
+<div class="card"><h3>T1036.005 — Match Legitimate Resource Name or Location</h3><p>The AppData executable used the name <code>MicrosoftEdgeUpdate.exe</code>, closely resembling legitimate Microsoft Edge Update software.</p></div>
+<div class="card"><h3>T1036.004 — Masquerade Task or Service</h3><p>The scheduled task used the trusted-looking path <code>\Microsoft\Windows\UpdateOrchestrator\EdgeUpdateCheck</code>.</p></div>
+<div class="card"><h3>T1547.001 — Registry Run Keys / Startup Folder</h3><p>A value was added beneath the current user's Windows Run key referencing the AppData executable, providing execution at user logon.</p></div>
+<div class="card"><h3>T1053.005 — Scheduled Task</h3><p>A scheduled task with an ONLOGON trigger was created referencing the suspicious executable and was subsequently executed.</p></div>
+<div class="card"><h3>T1059.003 — Windows Command Shell</h3><p>Windows command-shell and system utility execution was observed as part of the activity chain.</p></div>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">LIMITATIONS</p><h2>Evidence Boundaries</h2></div><div class="prose card"><p>Parent-process information was unavailable for some relevant process events and was treated as a telemetry limitation rather than evidence that no parent process existed. No network activity was identified that could be attributed directly to the suspicious executable. The differing executable hashes strengthened suspicion but did not independently establish maliciousness.</p></div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">RETROSPECTIVE</p><h2>Lessons Learned</h2></div><div class="prose card">
+<p>I did well by taking my time and stepping back to understand the wider context of the activity rather than making a conclusion from a single event. I was able to build a clearer picture by looking at the timeline and comparing the suspicious executable with the legitimate Microsoft Edge updater.</p>
+<p>What I could improve is focusing earlier on the most relevant evidence. I spent time investigating activity that turned out to be unrelated and got sidetracked by legitimate OneDrive and network activity. In future investigations, I should think more about the possible chain of events and use the timeline to decide which pivots are most likely to move the investigation forward.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">DETECTION ENGINEERING</p><h2>Detection Improvement</h2></div><div class="prose card">
+<p>Create a correlated detection for executables launched from user-writable directories that are subsequently configured for persistence through registry Run keys or scheduled tasks. Increase severity when the executable uses trusted-looking Microsoft naming or when persistence points to locations such as AppData or Temp.</p>
+<p>This correlation would provide stronger context than alerting independently on every user-profile executable, registry modification or scheduled task, helping analysts prioritise activity where several suspicious behaviours occur together.</p>
+</div></section>
+
+</main></body></html>

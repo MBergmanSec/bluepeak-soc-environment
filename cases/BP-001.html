@@ -105,3 +105,104 @@
   </div>
 
 </div>
+
+<section class="section">
+  <div class="section-head">
+    <p class="eyebrow">ANALYSIS</p>
+    <h2>Analyst Reasoning</h2>
+  </div>
+
+  <div class="prose card">
+    <p>
+      The initial PowerShell command line raised suspicion due to the use of
+      <code>-ExecutionPolicy Bypass</code> and <code>-NoProfile</code> in the context
+      of unusual activity on a Finance workstation.
+    </p>
+
+    <p>
+      Investigation of the subsequent Sysmon Event ID 11 confirmed that PowerShell
+      created a file within the user's Temp directory, increasing my suspicion.
+      Further DNS activity and user discovery added to the suspicious execution chain.
+    </p>
+
+    <p>
+      Although I could not confirm a successful outbound network connection, the
+      combined behaviour lacked an identified legitimate business explanation and
+      was sufficient for me to recommend isolation of the workstation.
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <p class="eyebrow">MITRE ATT&amp;CK</p>
+    <h2>Technique Mapping</h2>
+  </div>
+
+  <div class="cards two">
+    <div class="card">
+      <h3>T1059.001 — PowerShell</h3>
+      <p>
+        Confirmed PowerShell execution was observed during the investigation,
+        including execution using <code>-NoProfile</code> and
+        <code>-ExecutionPolicy Bypass</code>.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>T1087 — Account Discovery</h3>
+      <p>
+        Process telemetry confirmed execution of <code>whoami.exe</code> to identify
+        the account associated with the current security context.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>T1105 — Ingress Tool Transfer</h3>
+      <p>
+        <strong>Suspected / not confirmed.</strong> File creation occurred alongside
+        DNS and attempted web-related activity, but the available telemetry did not
+        confirm that the file was transferred from an external system.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <p class="eyebrow">RETROSPECTIVE</p>
+    <h2>Lessons Learned</h2>
+  </div>
+
+  <div class="prose card">
+    <p>
+      Looking back, I could have followed the file activity more thoroughly after
+      confirming the Temp file creation, particularly by investigating what
+      interacted with the file afterward.
+    </p>
+
+    <p>
+      I also initially put too much weight on the DNS and web activity and had to
+      separate what the telemetry actually proved from what I suspected had occurred.
+      DNS resolution and file creation did not prove that a successful download or
+      outbound connection had taken place.
+    </p>
+
+    <p>
+      The investigation also identified a monitoring gap: successful Windows logon
+      auditing was not enabled during the incident, meaning authentication activity
+      could not be retrospectively validated. This was corrected after the
+      investigation and Event ID 4624 ingestion into Splunk was validated.
+    </p>
+
+    <p>
+      In future investigations I would build the timeline more systematically and
+      follow each process, file, network and authentication pivot before forming a
+      final conclusion.
+    </p>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

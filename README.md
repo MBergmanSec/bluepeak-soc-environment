@@ -14,11 +14,9 @@ The technical lab generates real endpoint telemetry which I investigate through 
 
 
 
-\## Live Investigation Portfolio
+## Live Investigation Portfolio
 
-
-
-\*\*\[View the BluePeak SOC Investigation Portal](https://mbergmansec.github.io/bluepeak-soc-environment/)\*\*
+**[View the BluePeak SOC Investigation Portal](https://mbergmansec.github.io/bluepeak-soc-environment/)**
 
 
 

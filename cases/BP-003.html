@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BP-003 | BluePeak SOC</title><link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="site-header"><div class="container"><a href="../index.html" class="brand">BluePeak SOC</a><nav><a href="../index.html">← Back to Cases</a></nav></div></header>
+<main>
+<section class="case-hero"><div class="container">
+<p class="eyebrow">SOC Investigation · BP-003</p>
+<h1>Suspicious Browser-Data Collection and Staging</h1>
+<p class="lead">Unusual command execution associated with Windows system utilities and file activity.</p>
+<div class="case-facts">
+<span><strong>Host</strong>BNE-FIN-WS01</span><span><strong>User</strong>BNE-FIN-WS01\LocalAdmin</span>
+<span><strong>Department</strong>Finance</span><span><strong>Severity</strong>Medium</span>
+<span><strong>Assessment</strong>95% Malicious</span><span><strong>Action</strong>Isolation Recommended</span>
+</div></div></section>
+
+<section class="container section"><h2>Executive Summary</h2>
+<p><code>BNE-FIN-WS01\LocalAdmin</code> on <code>BNE-FIN-WS01</code> was reported for unusual command execution. Investigation identified discovery commands gathering user, host and network information, with output redirected into files and subsequently archived into <code>diag-cache.zip</code>.</p>
+<p>Further investigation identified <code>mshta.exe</code> spawning hidden PowerShell with an encoded command. Decoding the command revealed the wider activity chain, including user/host/network discovery, staging of browser-profile data, creation of the ZIP archive and an external connectivity check using <code>curl.exe</code>. No evidence was identified confirming that the archive was transferred externally.</p></section>
+
+<section class="container section"><h2>Investigation Timeline</h2><div class="timeline">
+<div class="timeline-item"><strong>13:45:47</strong><p><code>cmd.exe</code> launches <code>mshta.exe</code> against an HTA file in the user's Temp directory.</p></div>
+<div class="timeline-item"><strong>13:45:48</strong><p><code>mshta.exe</code> spawns PowerShell using <code>-NoProfile -WindowStyle Hidden -EncodedCommand</code>.</p></div>
+<div class="timeline-item"><strong>13:45:48+</strong><p>Discovery and collection includes <code>whoami /all</code>, <code>hostname</code> and <code>ipconfig /all</code>, with output staged under <code>Microsoft\Diagnostics\Cache</code>.</p></div>
+<div class="timeline-item"><strong>13:46:01</strong><p><code>tar.exe</code> archives the staged directory into <code>diag-cache.zip</code> in the user's Temp directory.</p></div>
+<div class="timeline-item"><strong>13:46:06</strong><p><code>curl.exe</code> performs an external connectivity-style request to <code>www.microsoft.com</code>. No evidence confirms transfer of the archive.</p></div>
+</div></section>
+
+<section class="container section"><h2>Key SPL</h2>
+<div class="code-card"><pre><code>index=* host="BNE-FIN-WS01"
+earliest="09/01/2026:13:46:01" latest="09/01/2026:13:49:35"
+| table _time EventCode User Image ParentImage CommandLine TargetFilename
+| sort _time</code></pre></div>
+<div class="code-card"><pre><code>index=* host="BNE-FIN-WS01" (EventCode=22 OR EventCode=3)
+earliest="09/01/2026:13:46:01" latest="09/01/2026:13:49:35"
+| table _time User EventCode Image QueryName DestinationIp DestinationPort DestinationHostname
+| sort _time</code></pre></div>
+<div class="code-card"><pre><code>index=* host="BNE-FIN-WS01" EventCode=11
+earliest="09/01/2026:13:46:01" latest="09/01/2026:13:49:35"
+| table _time User Image TargetFilename
+| sort _time</code></pre></div>
+<div class="code-card"><pre><code>index=* host="BNE-FIN-WS01" User="BNE-FIN-WS01\\LocalAdmin"
+earliest="09/01/2026:13:43:01" latest="09/01/2026:13:49:35"
+| table _time EventCode User Image ParentImage CommandLine TargetFilename
+| sort _time</code></pre></div></section>
+
+<section class="container section"><h2>Evidence</h2>
+<div class="evidence-card"><h3>01 — Initial Execution Chain</h3><p>An expanded timeline identified <code>cmd.exe → mshta.exe → hidden encoded PowerShell</code>, establishing an earlier execution chain preceding collection.</p><img class="evidence-image" src="../assets/screenshots/BP-003/01-Initial-Execution-Chain.png" alt="Initial execution chain"></div>
+<div class="evidence-card"><h3>02 — Discovery and Staging Timeline</h3><p>Process telemetry showed discovery commands, output redirection into a staging directory and subsequent archive creation with <code>tar.exe</code>.</p><img class="evidence-image" src="../assets/screenshots/BP-003/02-Discovery-Staging-Timeline.png" alt="Discovery staging timeline"></div>
+<div class="evidence-card"><h3>03 — Archive Creation</h3><p>Sysmon Event ID 11 confirmed <code>tar.exe</code> created <code>diag-cache.zip</code> in the user's Temp directory.</p><img class="evidence-image" src="../assets/screenshots/BP-003/03-Archive-Creation.png" alt="Archive creation"></div>
+<div class="evidence-card"><h3>04 — Network Review</h3><p>Network and DNS telemetry was reviewed after archive creation. <code>curl.exe</code> queried <code>www.microsoft.com</code>, but no telemetry confirmed that <code>diag-cache.zip</code> was transferred externally.</p><img class="evidence-image" src="../assets/screenshots/BP-003/04-Network-Review.png" alt="Network review"></div>
+</section>
+
+<section class="container section"><h2>Analyst Reasoning</h2>
+<p>The investigation began with broad file-creation activity. A ZIP archive created by <code>tar.exe</code> provided a high-value pivot into the surrounding host timeline. This exposed discovery commands gathering host and network information and redirecting their output into a staging directory before archive creation.</p>
+<p>Network telemetry was reviewed to determine whether activity following the archive indicated possible transfer. A DNS query from <code>curl.exe</code> to Microsoft was identified, but this did not establish exfiltration. Expanding the investigation backward revealed <code>mshta.exe</code> launching hidden encoded PowerShell.</p>
+<p>The encoded PowerShell was extracted and decoded for analysis. It showed the coordinated sequence of user, host and network discovery, browser-profile data staging, archive creation and the later connectivity check. Host isolation had already been recommended before the complete encoded activity was understood.</p></section>
+
+<section class="container section"><h2>Assessment &amp; Recommended Actions</h2>
+<p><strong>Assessment:</strong> The combined behaviour is highly unusual for the user and business context. Command-line telemetry and the decoded PowerShell demonstrate a coordinated sequence of discovery, browser-data collection, staging and archiving consistent with malicious activity.</p>
+<p><strong>Confidence:</strong> 95% malicious / 5% benign.</p>
+<p><strong>Recommended actions:</strong> Immediate host isolation due to the suspicious activity and potential impact to financial systems and data. Continue evidence gathering, including command-line telemetry, the encoded PowerShell, <code>diag-cache.zip</code>, collected/staged files, process relationships and user context. Further investigation should determine the initial execution source and whether any data was transferred externally.</p></section>
+
+<section class="container section"><h2>MITRE ATT&amp;CK</h2><div class="mitre-grid">
+<div><strong>T1218.005</strong><span>Mshta</span></div><div><strong>T1059.001</strong><span>PowerShell</span></div>
+<div><strong>T1555.003</strong><span>Credentials from Web Browsers</span></div><div><strong>T1033</strong><span>System Owner/User Discovery</span></div>
+<div><strong>T1082</strong><span>System Information Discovery</span></div><div><strong>T1016</strong><span>System Network Configuration Discovery</span></div>
+<div><strong>T1074.001</strong><span>Local Data Staging</span></div><div><strong>T1560.001</strong><span>Archive via Utility</span></div>
+</div><p>No exfiltration technique was mapped because the investigation did not identify evidence confirming external transfer of the archive.</p></section>
+
+<section class="container section"><h2>Limitations</h2>
+<p>Sysmon file-creation telemetry confirmed creation of <code>diag-cache.zip</code> but did not expose the contents of each staged file. Command-line telemetry was therefore used to establish what information was directed into the staging location. The external <code>curl.exe</code> activity did not prove that data was transferred, and no exfiltration claim was made.</p></section>
+
+<section class="container section"><h2>Retrospective</h2>
+<p>I improved my prioritisation in this investigation compared with BP-002. I was quicker at following the strongest evidence and made the decision to recommend host isolation before the full activity chain was understood.</p>
+<p>I still got sidetracked at times, particularly when trying to determine exactly what the staged files contained. However, by that point the host had already been recommended for isolation, so the additional investigation did not delay the containment decision.</p>
+<p>One area I still need to improve is my familiarity with Windows commands and utilities. There were several commands during the investigation that I had to look up before I could properly interpret them. Improving this knowledge should help me investigate similar activity faster while still verifying anything I'm unsure about.</p></section>
+
+<section class="container section"><h2>Detection Improvement</h2>
+<p>Monitor archive creation in user-writable directories such as Temp and AppData. Increase severity when archive creation is preceded by discovery or data-staging activity, particularly when associated with suspicious execution such as <code>mshta.exe</code>, encoded or hidden PowerShell, or command output being redirected into staging directories.</p>
+<p>Correlating these behaviours provides stronger investigative context than alerting independently on every ZIP file, discovery command or PowerShell execution, helping analysts prioritise suspicious collection-and-staging chains earlier.</p></section>
+</main>
+<footer class="site-footer"><div class="container"><p>BluePeak SOC Environment · BP-003</p></div></footer>
+</body></html>

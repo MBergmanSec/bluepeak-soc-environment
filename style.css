@@ -90,3 +90,49 @@
   object-fit: contain;
   margin: 0 auto;
 }
+
+/* Homepage enterprise environment overview */
+
+.environment-overview {
+  padding-top: 34px;
+  padding-bottom: 56px;
+}
+
+.environment-overview .section-head {
+  max-width: 850px;
+}
+
+.environment-intro {
+  color: #bac7d6;
+  margin: 10px 0 0;
+  max-width: 760px;
+}
+
+.environment-visual-link {
+  display: block;
+  margin-top: 26px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #080d16;
+  box-shadow: 0 18px 45px rgba(0,0,0,.22);
+}
+
+.environment-visual {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform .2s ease, opacity .2s ease;
+}
+
+.environment-visual-link:hover .environment-visual {
+  transform: scale(1.005);
+  opacity: .96;
+}
+
+.environment-caption {
+  margin: 10px 2px 0;
+  color: var(--muted);
+  font-size: .82rem;
+}
+

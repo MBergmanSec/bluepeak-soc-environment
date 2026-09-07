@@ -136,3 +136,61 @@
   font-size: .82rem;
 }
 
+/* MITRE ATT&CK technique formatting */
+
+.mitre-grid > div {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.mitre-grid strong {
+    flex-shrink: 0;
+}
+
+/* Case metadata / facts row — standard 5-column layout */
+
+.case-facts {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    background: #0d1524;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 28px;
+}
+
+.case-facts span {
+    display: block;
+    padding: 16px;
+    border-right: 1px solid var(--line);
+}
+
+.case-facts span:last-child {
+    border-right: 0;
+}
+
+.case-facts small {
+    display: block;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-size: .68rem;
+}
+
+.case-facts strong {
+    display: block;
+    margin-top: 4px;
+    font-size: .95rem;
+}
+
+@media (max-width: 850px) {
+    .case-facts {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .case-facts span {
+        border-bottom: 1px solid var(--line);
+    }
+}

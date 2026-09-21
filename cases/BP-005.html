@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BP-005 | BluePeak SOC</title><link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="topbar"><div class="brand"><div class="mark">BP</div><div><div class="brand-name">BLUEPEAK SECURITY OPERATIONS</div><div class="brand-sub">Investigation Detail</div></div></div><nav><a href="../index.html">← Case history</a></nav></header>
+<main class="case-page">
+
+<section class="case-hero"><div><p class="eyebrow">BP-005</p><h1>HR Endpoint Alert Triage &amp; Correlation</h1><p class="lead">Suspicious endpoint activity during an approved IT maintenance window, with unexplained HR-themed artifacts traced through file provenance and process ancestry.</p></div></section>
+
+<section class="facts">
+<div><small>Severity</small><strong>High</strong></div>
+<div><small>Host</small><strong>BNE-HR-WS03</strong></div>
+<div><small>Department</small><strong>HR · Brisbane HQ</strong></div>
+<div><small>Disposition</small><strong>Benign Positive</strong></div>
+<div><small>Confidence</small><strong>High</strong></div>
+</section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">SUMMARY</p><h2>Executive summary</h2></div><div class="prose card">
+<p>Multiple alerts on <code>BNE-HR-WS03</code> triggered review after encoded PowerShell, execution-policy bypass, archive creation, scheduled-task activity and execution from a user-writable temporary directory were observed.</p>
+<p>Approved change <code>CHG-2026-0917</code> explained endpoint inventory and security-agent validation during the same timeframe. However, HR-themed file staging, creation of <code>candidate-onboarding.zip</code>, a temporary executable named <code>HR-Document-Helper.exe</code> and an undocumented scheduled task were not fully accounted for by the change record. These events were investigated separately rather than automatically attributed to the authorized activity.</p>
+<p>Correlation across PowerShell Operational and Sysmon telemetry established that <code>Candidate-Onboarding-Notes.txt</code> was generated locally by the script using synthetic training data, copied into a temporary staging directory and archived by <code>tar.exe</code>. Process IDs, Process GUIDs and parent-process relationships linked the archive, encoded PowerShell, scheduled task, helper executable and discovery commands to the same PowerShell execution chain. Reviewed DNS and network telemetry did not provide evidence that the archive was transferred externally.</p>
+<p><strong>Disposition:</strong> Benign Positive with high confidence. No containment was recommended; the documentation discrepancy should be reviewed with IT Operations.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">TIMELINE</p><h2>Key evidence</h2></div><div class="prose card"><div class="timeline">
+<div class="timeline-item"><strong>15:35:44</strong><p><code>cmd.exe</code> launches PowerShell with <code>-NoProfile -ExecutionPolicy Bypass -EncodedCommand</code>.</p></div>
+<div class="timeline-item"><strong>15:35:53</strong><p>PowerShell creates/stages <code>Candidate-Onboarding-Notes.txt</code> under the user's temporary <code>BluePeakShift</code> directory. <code>tar.exe</code> then creates <code>candidate-onboarding.zip</code> containing that file.</p></div>
+<div class="timeline-item"><strong>15:36:08+</strong><p>A child encoded PowerShell instance performs OS/service-health validation. Additional activity includes creation of the one-time <code>BluePeak\HR Endpoint Inventory Check</code> task.</p></div>
+<div class="timeline-item"><strong>15:37:37+</strong><p><code>HR-Document-Helper.exe</code> executes from the user's Temp directory. Subsequent commands collect group and hostname context.</p></div>
+<div class="timeline-item"><strong>Investigation pivot</strong><p>PowerShell Operational telemetry reveals that the HR-themed document was created by the script itself with synthetic training content, materially changing the working hypothesis.</p></div>
+<div class="timeline-item"><strong>Correlation</strong><p>Sysmon process telemetry links the relevant child processes to PowerShell PID <code>9540</code>, then traces that PowerShell instance back through <code>cmd.exe</code> PID <code>10196</code> to the originating local shift execution.</p></div>
+</div></div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">INVESTIGATION</p><h2>Key SPL</h2></div><div class="cards two">
+<div class="card"><pre><code>index=* host="BNE-HR-WS03" EventCode=1
+| table _time User Image ProcessId ProcessGuid
+  ParentProcessId ParentProcessGuid ParentImage CommandLine
+| sort _time</code></pre></div>
+<div class="card"><pre><code>index=* EventCode=11
+TargetFilename="*Candidate-Onboarding-Notes.txt"
+| table _time host user Image TargetFilename</code></pre></div>
+<div class="card"><pre><code>index=* host="BNE-HR-WS03"
+"Candidate-Onboarding-Notes.txt"
+| table _time sourcetype _raw
+| head 5</code></pre></div>
+<div class="card"><pre><code>index=* host="BNE-HR-WS03" (EventCode=22 OR EventCode=3)
+earliest="09/09/2026:15:35:00" latest="09/09/2026:15:45:00"
+| stats count earliest(_time) as firstSeen latest(_time) as lastSeen
+  by Image DestinationIp DestinationPort User
+| convert ctime(firstSeen) ctime(lastSeen)
+| sort - count</code></pre></div>
+<div class="card"><pre><code>index=* host="BNE-HR-WS03" EventCode=1 "9540"
+| table _time User Image ProcessId ProcessGuid
+  ParentProcessId ParentProcessGuid ParentImage CommandLine
+| sort _time</code></pre></div>
+<div class="card"><pre><code>index=* host="BNE-HR-WS03" EventCode=1 ProcessId=10196
+| table _time User Image ProcessId ProcessGuid
+  ParentProcessId ParentProcessGuid ParentImage CommandLine
+| sort _time</code></pre></div>
+</div></section>
+
+<div class="evidence-section">
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">01</span><div><h3>Initial Encoded PowerShell</h3><p>Initial triage identified PowerShell running under <code>LocalAdmin</code> with <code>-ExecutionPolicy Bypass</code> and an encoded command. These characteristics justified investigation but were not treated as proof of malicious execution.</p></div></div><a href="../assets/screenshots/BP-005/01-Initial-Encoded-PowerShell.png" target="_blank"><img src="../assets/screenshots/BP-005/01-Initial-Encoded-PowerShell.png" alt="Initial encoded PowerShell activity" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">02</span><div><h3>HR Archive Creation</h3><p>The <code>tar.exe</code> command line established that <code>Candidate-Onboarding-Notes.txt</code> was specifically added to <code>candidate-onboarding.zip</code>.</p></div></div><a href="../assets/screenshots/BP-005/02-HR-Archive-Creation.png" target="_blank"><img src="../assets/screenshots/BP-005/02-HR-Archive-Creation.png" alt="HR archive creation" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">03</span><div><h3>Temporary Helper Execution</h3><p>Sysmon identified <code>HR-Document-Helper.exe</code> executing from the user's Temp directory as a child of the PowerShell activity under investigation.</p></div></div><a href="../assets/screenshots/BP-005/03-HR-Document-Helper-Execution.png" target="_blank"><img src="../assets/screenshots/BP-005/03-HR-Document-Helper-Execution.png" alt="HR Document Helper execution" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">04</span><div><h3>Candidate File Creation</h3><p>Sysmon Event ID 11 confirmed <code>powershell.exe</code> created the staged <code>Candidate-Onboarding-Notes.txt</code> file under <code>Temp\BluePeakShift</code>.</p></div></div><a href="../assets/screenshots/BP-005/04-Candidate-Onboarding-File-Creation.png" target="_blank"><img src="../assets/screenshots/BP-005/04-Candidate-Onboarding-File-Creation.png" alt="Candidate onboarding file creation" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">05</span><div><h3>PowerShell File Provenance</h3><p>PowerShell Operational telemetry revealed the decisive provenance evidence: the script itself created <code>Candidate-Onboarding-Notes.txt</code> with synthetic training content, copied it to Temp and invoked <code>tar.exe</code> to archive it.</p></div></div><a href="../assets/screenshots/BP-005/05-PowerShell-File-Provenance.png" target="_blank"><img src="../assets/screenshots/BP-005/05-PowerShell-File-Provenance.png" alt="PowerShell file provenance" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">06</span><div><h3>Process Tree Correlation</h3><p>Process ID and parent-process correlation linked <code>tar.exe</code>, the child encoded PowerShell, <code>schtasks.exe</code>, <code>HR-Document-Helper.exe</code> and discovery commands to the same parent PowerShell process, PID <code>9540</code>.</p></div></div><a href="../assets/screenshots/BP-005/06-Process-Tree-Correlation.png" target="_blank"><img src="../assets/screenshots/BP-005/06-Process-Tree-Correlation.png" alt="Process tree correlation" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">07</span><div><h3>Execution Origin</h3><p>Following the ancestry one level further identified <code>cmd.exe</code> PID <code>10196</code> and traced the investigated chain back to the originating local BluePeak shift execution.</p></div></div><a href="../assets/screenshots/BP-005/07-Execution-Origin.png" target="_blank"><img src="../assets/screenshots/BP-005/07-Execution-Origin.png" alt="Execution origin" class="evidence-image"></a></div>
+</div>
+
+<section class="section"><div class="section-head"><p class="eyebrow">ANALYSIS</p><h2>Analyst Reasoning</h2></div><div class="prose card">
+<p>The investigation began with a high-severity PowerShell alert during an approved IT maintenance window. Change <code>CHG-2026-0917</code> accounted for administrative PowerShell, OS and service-health collection, hostname and user/group context, and connectivity validation. It did not document collection or archiving of HR/business documents, custom executables or expected persistence.</p>
+<p>I initially leaned toward the surrounding activity being part of the authorized IT operation because several events aligned closely with the approved change. Rather than closing on that assumption, I separated the unexplained HR-themed artifacts and investigated what created them, what happened to them and whether they were associated with external communication.</p>
+<p>Sysmon established that PowerShell created the staged candidate file and that <code>tar.exe</code> archived it. Searching the filename across available telemetry then exposed the PowerShell script block responsible for its creation. This was the key hypothesis-changing evidence: the apparent HR document was not shown to be pre-existing business data collected from the workstation; the script generated synthetic training content itself.</p>
+<p>I then correlated the activity back into Sysmon Event ID 1 using process IDs, Process GUIDs and parent relationships. The archive process, encoded PowerShell, scheduled task, temporary helper and discovery commands converged on the same PowerShell parent. Walking the ancestry further established the local execution origin of that chain. DNS and network telemetry were reviewed separately, and no evidence was identified that the candidate archive was transferred externally.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">ASSESSMENT</p><h2>Disposition and Recommended Actions</h2></div><div class="prose card">
+<p><strong>Assessment:</strong> The investigated activity is assessed as benign administrative/test activity. The HR-themed document was generated locally as synthetic training data by the same scripted execution chain responsible for the surrounding validation activity. The reviewed telemetry did not establish collection of genuine HR data, a separate malicious execution chain or external transfer of the archive.</p>
+<p><strong>Disposition:</strong> Benign Positive.</p><p><strong>Confidence:</strong> High.</p>
+<p><strong>Recommended actions:</strong> Close the security alert without containment. Review the associated change documentation with IT Operations because several generated artifacts and scripted actions were not represented clearly in the approved change scope.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">MITRE ATT&amp;CK</p><h2>Observed Technique Mapping</h2></div><div class="prose card"><div class="mitre-grid">
+<div><strong>T1059.001</strong><span>PowerShell</span></div>
+<div><strong>T1053.005</strong><span>Scheduled Task</span></div>
+<div><strong>T1560.001</strong><span>Archive via Utility</span></div>
+<div><strong>T1033</strong><span>System Owner/User Discovery</span></div>
+<div><strong>T1082</strong><span>System Information Discovery</span></div>
+</div><p>These mappings describe behaviours visible in the telemetry and do not imply malicious intent. Here they were ultimately attributed to benign scripted test/administrative activity.</p></div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">LIMITATIONS</p><h2>Evidence Boundaries</h2></div><div class="prose card">
+<p>The investigation did not treat the absence of an observed network connection as proof that communication was impossible. The conclusion is limited to the telemetry reviewed: no evidence was identified linking the candidate archive to an external transfer.</p>
+<p>Sysmon file-creation telemetry established that files were created but did not independently establish their contents. File provenance was instead supported by PowerShell Operational telemetry showing the script used to generate the candidate document and its synthetic training string.</p>
+<p>The BluePeak shift launcher is part of the lab simulation mechanism. Once process ancestry reached that local launcher, continuing further would describe the mechanics of the exercise rather than provide additional incident evidence.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">RETROSPECTIVE</p><h2>Analyst Development</h2></div><div class="prose card">
+<p>This investigation exposed an anchoring risk in my own reasoning. Because the activity resembled a previous benign IT investigation, I initially generalized some surrounding events as likely belonging to the approved operation. I corrected this by separating the unexplained artifacts and independently testing their provenance, subsequent activity and process ancestry.</p>
+<p>The most valuable development was moving from reviewing isolated suspicious events to correlating relationships between them. A filename became a pivot into file creation, script-block telemetry, process IDs and GUIDs, parent/child relationships and ultimately execution origin. When a PowerShell Activity ID did not provide useful correlation outside its own log, I changed correlation keys rather than treating the dead end as the end of the investigation.</p>
+<p><strong>Skills reinforced:</strong> investigative hypothesis testing · cross-log correlation · file provenance · process ancestry · Sysmon PID/ProcessGuid correlation · PowerShell analysis · ITSM/change validation · evidence-vs-inference language.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">DEVELOPMENT</p><h2>Next Development Steps</h2></div><div class="prose card">
+<p>Continue developing investigation-led searching: define the fact that needs to be established, identify the evidence that could prove or disprove it, then choose the telemetry and correlation key most likely to contain that evidence.</p>
+<p>Practise moving between correlation keys such as filename, hash, PID, ProcessGuid, parent process, user/logon session, destination and timestamp rather than relying on a single identifier across every telemetry source.</p>
+</div></section>
+</main>
+</body></html>

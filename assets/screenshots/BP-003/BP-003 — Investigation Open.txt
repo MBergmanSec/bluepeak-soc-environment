@@ -1,0 +1,60 @@
+BP-003 — Investigation Open
+
+Severity: Medium
+Host: BNE-FIN-WS01
+User: BNE-FIN-WS01\LocalAdmin
+Alert: Unusual command execution associated with Windows system utilities and file activity.
+
+Initial SOC context: Endpoint telemetry generated an alert after unusual command execution was observed on the Finance workstation.
+
+There is no automated malware verdict and no containment action has been taken.
+
+
+$ErrorActionPreference = "SilentlyContinue"
+$stage = Join-Path $env:LOCALAPPDATA "Microsoft\Diagnostics\Cache"
+$src = Join-Path $env:TEMP "BrowserProfile\Default"
+New-Item -ItemType Directory -Force -Path $stage | Out-Null
+New-Item -ItemType Directory -Force -Path $src | Out-Null
+Set-Content -Path (Join-Path $src "Cookies") -Value "training_cookie=example"
+Set-Content -Path (Join-Path $src "Login Data") -Value "training_login_record"
+Set-Content -Path (Join-Path $src "Web Data") -Value "training_web_record"
+cmd.exe /c "whoami /all > `"$stage\user.txt`""
+cmd.exe /c "hostname > `"$stage\host.txt`""
+cmd.exe /c "ipconfig /all > `"$stage\network.txt`""
+Copy-Item -Force (Join-Path $src "Cookies") (Join-Path $stage "Cookies.db")
+Copy-Item -Force (Join-Path $src "Login Data") (Join-Path $stage "LoginData.db")
+Copy-Item -Force (Join-Path $src "Web Data") (Join-Path $stage "WebData.db")
+$archive = Join-Path $env:TEMP "diag-cache.zip"
+if (Test-Path $archive) { Remove-Item -Force $archive }
+tar.exe -a -c -f $archive -C $stage .
+Start-Sleep -Seconds 2
+curl.exe -I --max-time 5 https://www.microsoft.com/ | Out-Null	 
+2026-09-01 13:45:48.042	1	BNE-FIN-WS01\LocalAdmin	C:\Windows\System32\conhost.exe	C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe	\??\C:\WINDOWS\system32\conhost.exe 0xffffffff -ForceV1
+
+
+2026-09-01 13:46:01.338	BNE-FIN-WS01\LocalAdmin	C:\WINDOWS\system32\tar.exe
+
+
+2026-09-01 13:46:01.306	4688 "C:\WINDOWS\system32\tar.exe" -a -c -f C:\Users\LOCALA~1\AppData\Local\Temp\diag-cache.zip -C C:\Users\LocalAdmin\AppData\Local\Microsoft\Diagnostics\Cache .
+
+	 
+2026-09-01 13:46:01.312	1	BNE-FIN-WS01\LocalAdmin	C:\Windows\System32\tar.exe	C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe	"C:\WINDOWS\system32\tar.exe" -a -c -f C:\Users\LOCALA~1\AppData\Local\Temp\diag-cache.zip -C C:\Users\LocalAdmin\AppData\Local\Microsoft\Diagnostics\Cache .
+	 
+2026-09-01 13:46:01.338	11	BNE-FIN-WS01\LocalAdmin	C:\WINDOWS\system32\tar.exe	 	 	C:\Users\LOCALA~1\AppData\Local\Temp\diag-cache.zip
+
+2026-09-01 13:46:01.206	1	BNE-FIN-WS01\LocalAdmin	C:\Windows\System32\ipconfig.exe	C:\Windows\System32\cmd.exe	ipconfig  /all
+
+2026-09-01 13:46:01.180	1	BNE-FIN-WS01\LocalAdmin	C:\Windows\System32\cmd.exe	C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe	"C:\WINDOWS\system32\cmd.exe" /c "ipconfig /all &gt; "C:\Users\LocalAdmin\AppData\Local\Microsoft\Diagnostics\Cache\network.txt""
+
+2026-09-01 13:46:01.081	1	BNE-FIN-WS01\LocalAdmin	C:\Windows\System32\HOSTNAME.EXE	C:\Windows\System32\cmd.exe	hostname
+
+
+2026-09-01 13:46:01.040	1	BNE-FIN-WS01\LocalAdmin	C:\Windows\System32\cmd.exe	C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe	"C:\WINDOWS\system32\cmd.exe" /c "hostname &gt; "C:\Users\LocalAdmin\AppData\Local\Microsoft\Diagnostics\Cache\host.txt""
+
+2026-09-01 13:46:06.247	BNE-FIN-WS01\LocalAdmin	22	C:\Windows\System32\curl.exe	www.microsoft.com
+
+	 	 
+
+Discovery commands are gathering host/network information, redirecting their output into files, and then tar.exe appears to archive the directory containing those files into diag-cache.zip.
+
+Temporary host isolation recommended. The workstation shows a sequence of host and network discovery, collection of command output into files, creation of an archive, and subsequent external connectivity testing. While no evidence currently confirms that the archive was exfiltrated, the combined behaviour is sufficiently suspicious and inconsistent with expected Finance-user activity that the risk of leaving the endpoint connected outweighs the temporary business impact of isolation.

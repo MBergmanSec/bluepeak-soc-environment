@@ -8,21 +8,21 @@
 <header class="topbar"><div class="brand"><div class="mark">BP</div><div><div class="brand-name">BLUEPEAK SECURITY OPERATIONS</div><div class="brand-sub">Investigation Detail</div></div></div><nav><a href="../index.html">← Case history</a></nav></header>
 <main class="case-page">
 
-<section class="case-hero"><div><p class="eyebrow">BP-005</p><h1>HR Endpoint Alert Triage &amp; Correlation</h1><p class="lead">Suspicious endpoint activity during an approved IT maintenance window, with unexplained HR-themed artifacts traced through file provenance and process ancestry.</p></div></section>
+<section class="case-hero"><div><p class="eyebrow">BP-005</p><h1>HR Endpoint Alert Triage &amp; Correlation</h1><p class="case-published">Published Sep 2026</p><p class="lead">Suspicious endpoint activity during an approved IT maintenance window, with unexplained HR-themed artifacts traced through file provenance and process ancestry.</p></div></section>
 
 <section class="facts">
 <div><small>Severity</small><strong>High</strong></div>
 <div><small>Host</small><strong>BNE-HR-WS03</strong></div>
 <div><small>Department</small><strong>HR · Brisbane HQ</strong></div>
-<div><small>Disposition</small><strong>Benign Positive</strong></div>
+<div><small>Disposition</small><strong>Closed</strong></div>
 <div><small>Confidence</small><strong>High</strong></div>
-</section>
+</section><p class="case-assessment">Assessment: Benign activity</p>
 
 <section class="section"><div class="section-head"><p class="eyebrow">SUMMARY</p><h2>Executive summary</h2></div><div class="prose card">
 <p>Multiple alerts on <code>BNE-HR-WS03</code> triggered review after encoded PowerShell, execution-policy bypass, archive creation, scheduled-task activity and execution from a user-writable temporary directory were observed.</p>
 <p>Approved change <code>CHG-2026-0917</code> explained endpoint inventory and security-agent validation during the same timeframe. However, HR-themed file staging, creation of <code>candidate-onboarding.zip</code>, a temporary executable named <code>HR-Document-Helper.exe</code> and an undocumented scheduled task were not fully accounted for by the change record. These events were investigated separately rather than automatically attributed to the authorized activity.</p>
 <p>Correlation across PowerShell Operational and Sysmon telemetry established that <code>Candidate-Onboarding-Notes.txt</code> was generated locally by the script using synthetic training data, copied into a temporary staging directory and archived by <code>tar.exe</code>. Process IDs, Process GUIDs and parent-process relationships linked the archive, encoded PowerShell, scheduled task, helper executable and discovery commands to the same PowerShell execution chain. Reviewed DNS and network telemetry did not provide evidence that the archive was transferred externally.</p>
-<p><strong>Disposition:</strong> Benign Positive with high confidence. No containment was recommended; the documentation discrepancy should be reviewed with IT Operations.</p>
+<p><strong>Disposition:</strong> Closed as benign activity with high confidence. No containment was recommended; the documentation discrepancy should be reviewed with IT Operations.</p>
 </div></section>
 
 <section class="section"><div class="section-head"><p class="eyebrow">TIMELINE</p><h2>Key evidence</h2></div><div class="prose card"><div class="timeline">
@@ -81,7 +81,7 @@ earliest="09/09/2026:15:35:00" latest="09/09/2026:15:45:00"
 
 <section class="section"><div class="section-head"><p class="eyebrow">ASSESSMENT</p><h2>Disposition and Recommended Actions</h2></div><div class="prose card">
 <p><strong>Assessment:</strong> The investigated activity is assessed as benign administrative/test activity. The HR-themed document was generated locally as synthetic training data by the same scripted execution chain responsible for the surrounding validation activity. The reviewed telemetry did not establish collection of genuine HR data, a separate malicious execution chain or external transfer of the archive.</p>
-<p><strong>Disposition:</strong> Benign Positive.</p><p><strong>Confidence:</strong> High.</p>
+<p><strong>Disposition:</strong> Closed as benign activity.</p><p><strong>Confidence:</strong> High.</p>
 <p><strong>Recommended actions:</strong> Close the security alert without containment. Review the associated change documentation with IT Operations because several generated artifacts and scripted actions were not represented clearly in the approved change scope.</p>
 </div></section>
 

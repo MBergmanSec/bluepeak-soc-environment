@@ -194,3 +194,9 @@
         border-bottom: 1px solid var(--line);
     }
 }
+.method {padding-top:22px;padding-bottom:30px;border-top:1px solid var(--line)}
+.method p:not(.eyebrow) {max-width:840px;color:#bac7d6;margin:0}
+.assessment,.case-assessment,.case-published {color:var(--muted);font-size:.9rem}
+.assessment {margin:-8px 0 8px}
+.case-published {margin:0 0 12px}
+.case-assessment {margin:12px 0 0}

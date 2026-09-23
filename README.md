@@ -1,316 +1,46 @@
-\# BluePeak SOC Environment
+# BluePeak SOC Environment
 
+BluePeak Logistics is a fictional enterprise environment for practising security monitoring and SOC investigations. The lab produces endpoint telemetry that I investigate in Splunk and document as case reports. The business context, users, hosts and procedures give the cases a consistent setting.
 
+**[Explore the BluePeak investigation portfolio](https://mbergmansec.github.io/bluepeak-soc-environment/)** — five cases with evidence, SPL queries, analyst reasoning, outcomes and monitoring gaps.
 
-BluePeak Logistics is a simulated enterprise SOC environment I am building to develop and demonstrate practical security monitoring, investigation and incident response skills.
+## Investigation method
 
+For blind-investigation cases, scenarios are prepared without disclosing the setup or intended outcome to me beforehand. I investigate the resulting lab telemetry cold, following the evidence rather than a walkthrough. Earlier cases also document hands-on lab work, but did not all follow this blind format. My reports separate observed facts from hypotheses, record what cannot be confirmed, and explain the decision to escalate or close the case.
 
+**Observation → Evidence → Assessment → Confidence → Actions**
 
-Instead of treating each lab as an isolated exercise, BluePeak provides a persistent fictional organisation with its own users, endpoints, infrastructure, business context, security monitoring standards and investigation process.
+The cases include both escalations and legitimate activity. Alert severity, my assessment of the activity, and the final disposition are separate judgments.
 
+## Published investigations
 
+| Case | Published | Host | Alert severity | Disposition |
+| --- | --- | --- | --- | --- |
+| [BP-001 — Suspicious PowerShell Execution](https://mbergmansec.github.io/bluepeak-soc-environment/cases/BP-001.html) | Aug 2026 | `BNE-FIN-WS01` | Medium | Escalated |
+| [BP-002 — Suspicious Persistence and Masquerading](https://mbergmansec.github.io/bluepeak-soc-environment/cases/BP-002.html) | Aug 2026 | `BNE-FIN-WS01` | Medium | Escalated |
+| [BP-003 — Suspicious Browser-Data Collection and Staging](https://mbergmansec.github.io/bluepeak-soc-environment/cases/BP-003.html) | Sep 2026 | `BNE-FIN-WS01` | Medium | Escalated |
+| [BP-004 — Suspicious Administrative Activity](https://mbergmansec.github.io/bluepeak-soc-environment/cases/BP-004.html) | Sep 2026 | `BNE-IT-WS02` | Medium | Closed — benign activity |
+| [BP-005 — HR Endpoint Alert Triage & Correlation](https://mbergmansec.github.io/bluepeak-soc-environment/cases/BP-005.html) | Sep 2026 | `BNE-HR-WS03` | High | Closed — benign test activity |
 
-The technical lab generates real endpoint telemetry which I investigate through Splunk and document as SOC cases.
+These are publication months from the repository history, not timestamps of the simulated events. The three host names above are case identities; they do not claim three separate persistent VMs.
 
+## Implemented lab and scope
 
+- Splunk Enterprise and Universal Forwarder for collection and investigation
+- Sysmon, Windows Security auditing and PowerShell Operational logging on lab endpoints
+- Process, file, registry, DNS, network, authentication and script activity where available in each case
 
-## Live Investigation Portfolio
+BluePeak's [enterprise documentation](docs/) describes the wider fictional organisation. Some documented systems and telemetry are planned rather than implemented; each case report identifies the evidence actually available for that investigation.
 
-**[View the BluePeak SOC Investigation Portal](https://mbergmansec.github.io/bluepeak-soc-environment/)**
+## Project documentation
 
+- [Company overview](docs/Company/Company-Overview.md) and [asset inventory](docs/Infrastructure/Asset-Inventory.md)
+- [Technology overview](docs/Infrastructure/Technology-Overview.md) and [identity and authentication](docs/Infrastructure/Identity%20and%20Authentication.md)
+- [Security monitoring](docs/SOC/Security-Monitoring.md), [investigation workflow](docs/SOC/Investigation-Workflow.md) and [escalation guide](docs/SOC/Escalation-Guide.md)
+- [Investigation standards](docs/Standards/SOC-Investigation-Standards.md), [checklist](docs/Standards/Investigation-Checklist.md) and [known good activity](docs/Operations/Known-Good-Activity.md)
 
+## Status
 
-The portal provides a recruiter-friendly view of completed investigations, including investigation timelines, SPL queries, evidence screenshots, analyst assessments, recommended actions and identified monitoring gaps.
+Active development. BP-001 through BP-005 are published. I am continuing to add investigations and improve the lab's telemetry and investigation procedures.
 
-
-
-\---
-
-
-
-\## Current Lab
-
-
-
-The implemented lab currently includes:
-
-
-
-\- Splunk Enterprise
-
-\- Splunk Universal Forwarder
-
-\- Sysmon
-
-\- Windows Security auditing
-
-\- PowerShell Operational logging
-
-\- Windows endpoint telemetry
-
-
-
-Current telemetry includes:
-
-
-
-\- Process creation
-
-\- File creation
-
-\- Network connections
-
-\- DNS queries
-
-\- Authentication activity
-
-\- PowerShell activity
-
-
-
-The wider BluePeak architecture includes additional planned infrastructure and telemetry sources which will be implemented progressively as the lab develops.
-
-
-
-\---
-
-
-
-\## Investigation Approach
-
-
-
-BluePeak investigations follow an evidence-led workflow:
-
-
-
-\*\*Observation → Evidence → Assessment → Confidence → Actions\*\*
-
-
-
-The objective is not to force every alert into a malicious or benign conclusion.
-
-
-
-Investigations document what the available telemetry supports, what remains unverified, and what additional evidence or response actions would be required.
-
-
-
-\---
-
-
-
-\## Current Investigations
-
-
-
-\### BP-001 — Suspicious PowerShell Execution
-
-
-
-\*\*Host:\*\* `BNE-FIN-WS01`  
-
-\*\*Department:\*\* Finance  
-
-\*\*Disposition:\*\* Escalated  
-
-\*\*Assessment:\*\* Highly Suspicious
-
-
-
-BP-001 involved unusual PowerShell execution followed by temporary file creation, DNS activity and user discovery.
-
-
-
-The investigation identified:
-
-
-
-\- PowerShell execution using `ExecutionPolicy Bypass`
-
-\- Hidden PowerShell activity
-
-\- File creation within the LocalAdmin Temp directory
-
-\- DNS resolution initiated by PowerShell
-
-\- `cmd.exe` execution of `whoami`
-
-\- Discovery output redirected to an additional temporary file
-
-
-
-No associated outbound network connection was confirmed from the available telemetry.
-
-
-
-Host isolation and escalation were recommended.
-
-
-
-The investigation also exposed a monitoring gap: successful Windows logon auditing was disabled during the incident period. The configuration was corrected and Event ID 4624 ingestion was subsequently validated in Splunk.
-
-
-
-\*\*\[View BP-001 Investigation](https://mbergmansec.github.io/bluepeak-soc-environment/cases/BP-001.html)\*\*
-
-
-
-\---
-
-
-
-\## BluePeak Documentation
-
-
-
-The fictional enterprise environment provides context for investigations and defines what activity should or should not be considered normal.
-
-
-
-\### Environment
-
-
-
-\- \[Company Overview](docs/Company/Company-Overview.md)
-
-\- \[Technology Overview](docs/Infrastructure/Technology-Overview.md)
-
-\- \[Network Overview](docs/Infrastructure/Network-Overview.md)
-
-\- \[Asset Inventory](docs/Infrastructure/Asset-Inventory.md)
-
-\- \[Identity and Authentication](docs/Infrastructure/Identity%20and%20Authentication.md)
-
-
-
-\### SOC Operations
-
-
-
-\- \[Security Monitoring](docs/SOC/Security-Monitoring.md)
-
-\- \[Investigation Workflow](docs/SOC/Investigation-Workflow.md)
-
-\- \[Escalation Guide](docs/SOC/Escalation-Guide.md)
-
-\- \[Incident Response Philosophy](docs/SOC/Incident-Response-Philosophy.md)
-
-
-
-\### Investigation Standards
-
-
-
-\- \[SOC Investigation Standards](docs/Standards/SOC-Investigation-Standards.md)
-
-\- \[Investigation Checklist](docs/Standards/Investigation-Checklist.md)
-
-\- \[Known Good Activity](docs/Operations/Known-Good-Activity.md)
-
-
-
-The full documentation set is available under \[`/docs`](docs/).
-
-
-
-\---
-
-
-
-\## Why BluePeak Exists
-
-
-
-The goal of this project is to practise the work expected of a SOC analyst rather than only completing guided labs.
-
-
-
-That includes:
-
-
-
-\- Writing and refining SPL
-
-\- Investigating endpoint telemetry
-
-\- Correlating activity across multiple event types
-
-\- Building timelines
-
-\- Separating evidence from assumptions
-
-\- Recognising legitimate administrative activity
-
-\- Identifying telemetry gaps
-
-\- Making escalation and containment decisions
-
-\- Writing clear investigation reports
-
-
-
-As the environment develops, additional cases will introduce different attack behaviours, benign activity, false positives and new telemetry sources.
-
-
-
-\---
-
-
-
-\## Project Status
-
-
-
-\*\*Active Development\*\*
-
-
-
-Completed:
-
-
-
-\- BluePeak enterprise and SOC documentation foundation
-
-\- Splunk/Sysmon endpoint monitoring
-
-\- Windows Security telemetry
-
-\- PowerShell telemetry
-
-\- BP-001 investigation
-
-\- Recruiter-facing investigation portal
-
-
-
-Next:
-
-
-
-\- Additional SOC investigations
-
-\- Expanded endpoint coverage
-
-\- EDR integration
-
-\- Detection engineering
-
-\- Additional enterprise telemetry
-
-
-
-\---
-
-
-
-\## Disclaimer
-
-
-
-BluePeak Logistics is a fictional organisation created for cybersecurity training and portfolio purposes.
-
-
-
-The organisation, users and investigation scenarios are simulated. Security telemetry shown in the investigation portfolio is generated through hands-on activity within the lab environment.
-
+BluePeak Logistics, its users and its case scenarios are fictional. The telemetry shown in the reports was generated through hands-on activity in the lab.

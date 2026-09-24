@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BP-006 | BluePeak SOC</title><link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="topbar"><div class="brand"><div class="mark">BP</div><div><div class="brand-name">BLUEPEAK SECURITY OPERATIONS</div><div class="brand-sub">Investigation Detail</div></div></div><nav><a href="../index.html">← Case history</a></nav></header>
+<main class="case-page">
+
+<section class="case-hero"><div><p class="eyebrow">BP-006</p><h1>Unauthorized Local Account Creation &amp; Privilege Escalation</h1><p class="lead">Suspected account-persistence activity on an HR endpoint, traced from repeated failed administrator logon attempts through creation and privileged elevation of an undocumented local account.</p></div></section>
+
+<section class="facts">
+<div><small>Severity</small><strong>High</strong></div>
+<div><small>Host</small><strong>BNE-HR-WS03</strong></div>
+<div><small>Department</small><strong>HR · Brisbane HQ</strong></div>
+<div><small>Disposition</small><strong>Malicious — Suspected Compromise</strong></div>
+<div><small>Confidence</small><strong>High</strong></div>
+</section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">SUMMARY</p><h2>Executive summary</h2></div><div class="prose card">
+<p>Investigation began from three separate alerts on <code>BNE-HR-WS03</code>: multiple failed local logon attempts, creation of a new local administrator account and a non-interactive PowerShell session. Correlating Windows Security telemetry established that the alerts formed a single event chain.</p>
+<p><code>LocalAdmin</code>, tied to logon session <code>0x9ff3d</code>, generated repeated failed network logon attempts (LogonType 3) against the built-in <code>Administrator</code> account. Seconds later, the same session created <code>svc_rsupport</code> and added it to the local <code>Administrators</code> group. <code>svc_rsupport</code> then authenticated interactively and executed host and network discovery commands.</p>
+<p>Neither <code>LocalAdmin</code> nor <code>svc_rsupport</code> was recognized by the available BluePeak systems of record. No documented change, ticket or vendor engagement accounted for the activity. The CMDB identified <code>ITSupport</code> as the approved local administrator account for the asset.</p>
+<p><strong>Disposition:</strong> Malicious — suspected compromise, high confidence. Escalation to Tier 2/IR and containment of the affected endpoint/account were recommended pending deeper validation.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">TIMELINE</p><h2>Key evidence</h2></div><div class="prose card"><div class="timeline">
+<div class="timeline-item"><strong>Prior to shift</strong><p>Process-creation events using session identifier <code>0x9ff3d</code> were present as far back as 09/09. No originating logon event for that identifier was available, so continuity of the session could not be established.</p></div>
+<div class="timeline-item"><strong>14:25:38</strong><p>Session <code>0x9ff3d</code> spawns <code>cmd.exe</code>, parent <code>powershell.exe</code>.</p></div>
+<div class="timeline-item"><strong>14:25:47 – 14:26:30</strong><p>Four failed network logon attempts (Event 4625, LogonType 3) target <code>Administrator</code>, all attributed to session <code>0x9ff3d</code>.</p></div>
+<div class="timeline-item"><strong>14:26:47</strong><p><code>LocalAdmin</code> / <code>0x9ff3d</code> creates <code>svc_rsupport</code> (4720). The same session adds its SID to the local <code>Administrators</code> group (4732).</p></div>
+<div class="timeline-item"><strong>14:26:53</strong><p><code>svc_rsupport</code> authenticates interactively (4624, LogonType 2, source <code>::1</code>) and receives its own logon session.</p></div>
+<div class="timeline-item"><strong>14:26:53 – 14:26:56</strong><p>The new session executes identity, hostname, network, local-account and system discovery commands followed by DNS/HTTPS-related commands. Execution was established; successful outbound communication was not.</p></div>
+</div></div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">INVESTIGATION</p><h2>Key SPL</h2></div><div class="cards two">
+<div class="card"><pre><code>index=* (EventCode=4624 OR EventCode=4625)
+| table _time EventCode TargetUserName SubjectLogonId SubjectUserName
+  LogonType WorkstationName IpAddress ProcessName
+| sort _time</code></pre></div>
+<div class="card"><pre><code>index=* TargetLogonId="0x9ff3d"
+| table _time EventCode TargetUserName SubjectUserName
+  SubjectLogonId host
+| sort _time</code></pre></div>
+<div class="card"><pre><code>index=* LogonId=0x723e97 (EventCode=3 OR EventCode=22)
+| table _time User EventCode Image DestinationIp DestinationPort
+  DestinationHostname QueryName
+| sort _time</code></pre></div>
+<div class="card"><pre><code>index=* EventCode=4732
+| table _time SubjectUserName SubjectLogonId MemberSid TargetUserName
+| sort _time</code></pre></div>
+</div></section>
+
+<div class="evidence-section">
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">01</span><div><h3>Initial Alert Triage</h3><p>The first Security-log review established the authentication activity visible during the shift before relationships between individual events were assumed.</p></div></div><a href="../assets/screenshots/BP-006/01-Initial-Alert-Triage.png" target="_blank"><img src="../assets/screenshots/BP-006/01-Initial-Alert-Triage.png" alt="Initial alert triage" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">02</span><div><h3>Failed Logons and Account Creation</h3><p>Expanded authentication fields exposed repeated failures against <code>Administrator</code> followed by activity involving <code>svc_rsupport</code>. Timing created a correlation hypothesis rather than proof on its own.</p></div></div><a href="../assets/screenshots/BP-006/02-Failed-Logons-and-Account-Creation.png" target="_blank"><img src="../assets/screenshots/BP-006/02-Failed-Logons-and-Account-Creation.png" alt="Failed logons and account creation" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">03</span><div><h3>Account Creation Raw Event</h3><p>The raw 4720 event confirmed creation of <code>svc_rsupport</code>, recorded its SID and identified <code>SubjectLogonId 0x9ff3d</code> as the session performing the action.</p></div></div><a href="../assets/screenshots/BP-006/03-Account-Creation-Raw-Event.png" target="_blank"><img src="../assets/screenshots/BP-006/03-Account-Creation-Raw-Event.png" alt="Account creation raw event" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">04</span><div><h3>Session Correlation Confirmed</h3><p>The relevant logon-session fields established the correlation key: <code>0x9ff3d</code> tied the failed attempts and account-management activity to the same origin session, replacing time proximity with direct evidence.</p></div></div><a href="../assets/screenshots/BP-006/04-Session-Correlation-Confirmed.png" target="_blank"><img src="../assets/screenshots/BP-006/04-Session-Correlation-Confirmed.png" alt="Session correlation confirmed" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">05</span><div><h3>svc_rsupport Session Established</h3><p>A raw 4624 event showed <code>svc_rsupport</code> authenticating interactively and receiving <code>TargetLogonId 0x723e97</code>, providing a new pivot for activity performed by the created account.</p></div></div><a href="../assets/screenshots/BP-006/05-SVC-Rsupport-Own-Session.png" target="_blank"><img src="../assets/screenshots/BP-006/05-SVC-Rsupport-Own-Session.png" alt="svc_rsupport own session" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">06</span><div><h3>Discovery Command Chain</h3><p>The new session included identity, hostname, network, local-account and system discovery. This established post-logon discovery without assuming that later network-oriented commands successfully communicated externally.</p></div></div><a href="../assets/screenshots/BP-006/06-Discovery-Command-Chain.png" target="_blank"><img src="../assets/screenshots/BP-006/06-Discovery-Command-Chain.png" alt="Discovery command chain" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">07</span><div><h3>Group Membership SID Match</h3><p>The 4732 event identified the added principal by SID. Matching <code>MemberSid</code> against the SID assigned during the 4720 creation event confirmed that <code>svc_rsupport</code> was added to the local <code>Administrators</code> group.</p></div></div><a href="../assets/screenshots/BP-006/07-Group-Membership-SID-Match.png" target="_blank"><img src="../assets/screenshots/BP-006/07-Group-Membership-SID-Match.png" alt="Group membership SID match" class="evidence-image"></a></div>
+<div class="evidence-card"><div class="evidence-header"><span class="evidence-number">08</span><div><h3>Unexplained Session History</h3><p>A broader search found older routine process activity associated with <code>0x9ff3d</code>. Without its originating logon event, the evidence could not establish whether this represented one continuous session, identifier reuse or a lab lifecycle artifact.</p></div></div><a href="../assets/screenshots/BP-006/08-Unexplained-Session-History.png" target="_blank"><img src="../assets/screenshots/BP-006/08-Unexplained-Session-History.png" alt="Unexplained session history" class="evidence-image"></a></div>
+
+</div>
+
+<section class="section"><div class="section-head"><p class="eyebrow">ANALYSIS</p><h2>Analyst Reasoning</h2></div><div class="prose card">
+<p>Triage began from the failed-logon alert. Nearby account-creation activity was treated as potentially related, but timing alone was not used to establish causation. Correlating the Windows Security events against <code>SubjectLogonId</code> established that the failed attempts and subsequent account-management actions shared the same origin session.</p>
+<p>Establishing legitimacy required checking BluePeak's available systems of record rather than inferring intent from the techniques alone. AD, CMDB, Admin Activity Records and the Service Account Register did not recognize <code>LocalAdmin</code> or <code>svc_rsupport</code>. The CMDB's documented local administrator account for the asset, <code>ITSupport</code>, did not match, further reducing support for a legitimate administrative explanation.</p>
+<p>The investigation followed the newly created account into its own successful logon session. The SID assigned to <code>svc_rsupport</code> at creation was then matched to the <code>MemberSid</code> recorded when an account was added to the local <code>Administrators</code> group, confirming privileged elevation without relying on a username assumption.</p>
+<p>No corresponding network telemetry established whether the DNS/HTTPS commands resulted in successful communication, and the absence of Event 4698 on this host meant scheduled-task persistence could neither be confirmed nor excluded from available Tier 1 telemetry.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">ASSESSMENT</p><h2>Disposition and Recommended Actions</h2></div><div class="prose card">
+<p><strong>Assessment:</strong> The evidence supports unauthorized creation and privileged elevation of a local account, performed under a session with no corresponding logon record and no recognition across any internal system of record. This is inconsistent with documented legitimate administrative activity and consistent with unauthorized account-based persistence.</p>
+<p><strong>Disposition:</strong> Malicious — suspected compromise.</p>
+<p><strong>Confidence:</strong> High for the confirmed chain of failed logons → account creation → group elevation → logon → discovery. The origin of session <code>0x9ff3d</code>, successful outbound connectivity and scheduled-task persistence were not confirmed.</p>
+<p><strong>Recommended actions:</strong> Escalate to Tier 2/IR. Isolate <code>BNE-HR-WS03</code> pending investigation and disable or restrict <code>svc_rsupport</code>. Validate the origin and legitimacy of <code>LocalAdmin</code> through means outside Tier 1 telemetry access, review current local administrator membership and scheduled-task state directly on the host, and scope other BluePeak assets for related activity.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">MITRE ATT&amp;CK</p><h2>Observed Technique Mapping</h2></div><div class="prose card"><div class="mitre-grid">
+<div><strong>T1110.001</strong><span>Password Guessing</span></div>
+<div><strong>T1136.001</strong><span>Create Account: Local Account</span></div>
+<div><strong>T1098.001</strong><span>Account Manipulation: Additional Local or Domain Groups</span></div>
+<div><strong>T1087.001</strong><span>Account Discovery: Local Account</span></div>
+<div><strong>T1082</strong><span>System Information Discovery</span></div>
+<div><strong>T1016</strong><span>System Network Configuration Discovery</span></div>
+<div><strong>T1016.001</strong><span>Internet Connection Discovery</span></div>
+</div><p>Technique mapping describes behaviours established in the available telemetry. It does not establish the identity or motive of the actor responsible.</p></div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">LIMITATIONS</p><h2>Evidence Boundaries</h2></div><div class="prose card">
+<p>No logon event for session <code>0x9ff3d</code> itself was found in available telemetry, so its origin could not be established. Process-creation events associated with the identifier predated the incident by up to twelve days. This may reflect a session remaining active across VM suspend/resume cycles or another lab lifecycle artifact, but the available evidence cannot establish the explanation. It was therefore not treated as evidence of long-running attacker persistence.</p>
+<p>Command-line auditing was not enabled for Event 4688; process names were available but arguments were not. Task Scheduler registration auditing (4698) was absent, so scheduled-task persistence could neither be confirmed nor excluded.</p>
+<p>No Sysmon Event 3 or Event 22 telemetry was identified for the session that ran the network-oriented commands. Command execution therefore did not establish network outcome.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">RETROSPECTIVE</p><h2>Analyst Development</h2></div><div class="prose card">
+<p>This investigation required moving between Windows Security logon events, account-management events and Sysmon telemetry, where similar concepts are represented by different field names. Several early searches assumed a field existed or carried the same meaning across event types. Pulling raw events and reading the actual schema corrected those assumptions and became the working method for the remainder of the case.</p>
+<p><code>Subject</code> and <code>Target</code> required deliberate attention throughout. The account requesting an action and the account being acted upon are not interchangeable, and correctly separating them was necessary to attribute the failed logons, account creation and group elevation to the right identities.</p>
+<p>A shared LogonId became the deciding evidence for whether events were related rather than relying on time proximity. The same discipline was applied to the older <code>0x9ff3d</code> history: the identifier appeared across a twelve-day period, but the available evidence did not establish one continuous session, so the conclusion was narrowed rather than overstated.</p>
+<p><strong>Skills reinforced:</strong> cross-schema field verification · Subject/Target attribution · LogonId correlation · SID correlation · Windows account-management analysis · distinguishing command execution from confirmed outcome · scoping conclusions to available evidence · Tier 1 access discipline.</p>
+</div></section>
+
+<section class="section"><div class="section-head"><p class="eyebrow">DEVELOPMENT</p><h2>Next Development Steps</h2></div><div class="prose card">
+<p>Continue verifying field names against raw events before building queries around them, particularly when moving between Windows Security and Sysmon schemas.</p>
+<p>Practise stating evidence boundaries as precisely as conclusions. An unconfirmed detail and a ruled-out explanation are different findings and should be documented differently.</p>
+</div></section>
+</main>
+</body></html>
